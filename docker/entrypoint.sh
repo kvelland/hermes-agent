@@ -25,6 +25,22 @@ if [ "$(id -u)" = "0" ]; then
         chown -R hermes:hermes "$HERMES_HOME"
     fi
 
+    # --- Start Tailscale (must run as root) ---
+    if [ -n "$TS_AUTHKEY" ]; then
+        mkdir -p /opt/data/tailscale /var/run/tailscale
+        tailscaled --state=/opt/data/tailscale/tailscaled.state \
+                   --socket=/var/run/tailscale/tailscaled.sock \
+                   --tun=userspace-networking &
+        sleep 2
+        echo "Connecting to Tailscale..."
+        tailscale --socket=/var/run/tailscale/tailscaled.sock up \
+            --authkey="$TS_AUTHKEY" \
+            --hostname="${TS_HOSTNAME:-hermes-agent}" && \
+        echo "Tailscale connected:" && \
+        tailscale --socket=/var/run/tailscale/tailscaled.sock status || \
+        echo "WARNING: Tailscale auth failed"
+    fi
+
     echo "Dropping root privileges"
     exec gosu hermes "$0" "$@"
 fi
